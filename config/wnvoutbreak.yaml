@@ -1,0 +1,15 @@
+---
+# Dynamically allocated root directory - created at run time. See config's __init__.py for details.
+root: ''
+
+# GSheetsEtl config
+gsheet_url: 'https://docs.google.com/spreadsheets/d/1pnmaNPIg85HiUnlQYksmoUHW5IV1x90QjT9bP9BSD8U/export?format=csv'
+format: 'GSheets'
+etl_dir: 'etl\data'
+geocoder_prefix_url: 'https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address='
+geocoder_suffix_url: '&benchmark=2020&format=json'
+proj_dir: 'WestNileOutbreak'
+spatial_ref_dataset: 'Boulder_Addresses'
+input_gdb_dir: 'WestNileOutbreak\WestNileOutbreak.gdb'
+output_gdb_dir: 'WestNileOutbreak\WestNileOutbreak_Outputs.gdb'
+buf_distance: '1800 Feet'
