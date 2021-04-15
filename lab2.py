@@ -184,8 +184,8 @@ def run_model():
 
     # Symmetrical Difference (Analysis)
     # https://pro.arcgis.com/en/pro-app/latest/tool-reference/analysis/symmetrical-difference.htm
-    inFeatures = set_path(output_db, 'IntersectAnalysis')
-    updateFeatures = set_path(output_db, 'avoid_points_buf')
+    inFeatures = set_path(output_db, 'avoid_points_buf')
+    updateFeatures = set_path(output_db, 'IntersectAnalysis')
     outFeatureClass = set_path(output_db, 'sd_intersect')
 
     # Execute SymDiff
