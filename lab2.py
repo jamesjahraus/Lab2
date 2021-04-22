@@ -139,6 +139,7 @@ def intersect(aprx_mp, fc_list, output_fc, lyr_name):
 
 def run_model():
     # Check setup
+    user_inputs = {'intersect_fc': 'IntersectAnalysis', 'buf_distance': '2500 Feet'}
     output_db = config_dict.get('output_gdb_dir')
     arcpy.AddMessage(f'output db: {output_db}')
     aprx_path = set_path(config_dict.get('proj_dir'), 'WestNileOutbreak.aprx')
@@ -150,7 +151,7 @@ def run_model():
     buf_fc_list = ['Mosquito_Larval_Sites', 'Wetlands_Regulatory', 'Lakes_and_Reservoirs', 'OSMP_Properties',
                    'avoid_points']
     for fc in buf_fc_list:
-        buf_distance = config_dict.get('buf_distance')
+        buf_distance = user_inputs['buf_distance']
         input_fc_name = fc
         buf_fc_name = f'{fc}_buf'
         buf_fc = set_path(output_db, buf_fc_name)
@@ -167,7 +168,7 @@ def run_model():
         else:
             intersect_fn = set_path(output_db, f'{fn}_buf')
             intersect_fc_list.append(intersect_fn)
-    intersect_fc_name = 'IntersectAnalysis'
+    intersect_fc_name = user_inputs['intersect_fc']
     inter = set_path(output_db, intersect_fc_name)
     intersect(mp, intersect_fc_list, inter, intersect_fc_name)
     aprx.save()
@@ -182,24 +183,25 @@ def run_model():
     record_count = arcpy.GetCount_management(jofc)
     arcpy.AddMessage(f'\nBoulder Addresses at-risk =  {record_count[0]}\n')
 
-    # Symmetrical Difference (Analysis)
-    # https://pro.arcgis.com/en/pro-app/latest/tool-reference/analysis/symmetrical-difference.htm
+    # Clip (Analysis)
+    # https://pro.arcgis.com/en/pro-app/latest/tool-reference/analysis/clip.htm
     inFeatures = set_path(output_db, 'avoid_points_buf')
-    updateFeatures = set_path(output_db, 'IntersectAnalysis')
-    outFeatureClass = set_path(output_db, 'sd_intersect')
+    clipFeatures = set_path(output_db, 'IntersectAnalysis')
+    clipOutput = set_path(output_db, 'clip_intersect')
 
-    # Execute SymDiff
-    sd = arcpy.SymDiff_analysis(inFeatures, updateFeatures, outFeatureClass, "ALL")
-    check_status(sd)
+    # Execute Clip
+    c = arcpy.Clip_analysis(inFeatures, clipFeatures, clipOutput)
+    check_status(c)
 
     # Record re-count
-    join_output_name = 'sd_intersect_Join_BoulderAddresses'
+    join_output_name = 'clip_intersect_Join_BoulderAddresses'
     jofc = set_path(output_db, join_output_name)
-    sp = arcpy.SpatialJoin_analysis('Boulder_Addresses', set_path(output_db, 'sd_intersect'), jofc,
+    sp = arcpy.SpatialJoin_analysis('Boulder_Addresses', set_path(output_db, 'clip_intersect'), jofc,
                                     join_type="KEEP_COMMON", match_option="WITHIN")
     check_status(sp)
     record_count = arcpy.GetCount_management(jofc)
-    arcpy.AddMessage(f'\nBoulder Addresses at-risk after avoid-points removed from Intersect =  {record_count[0]}\n')
+    arcpy.AddMessage(
+        f'\nBoulder Addresses in risk zone that need to be opted out of pesticide spraying =  {record_count[0]}\n')
 
 
 if __name__ == '__main__':
