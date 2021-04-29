@@ -2,6 +2,7 @@ import time
 import arcpy
 import etl
 import logging
+import tkinter as tk
 from config import config_dict, set_path, setup_logging
 
 logger = logging.getLogger(__name__)
@@ -69,7 +70,18 @@ def check_status(result):
     return messages
 
 
-def arcgis_setup():
+def arcgis_setup(flush_output_db=False):
+    # Optional flush output_db
+    output_db = config_dict.get('output_gdb_dir')
+    if flush_output_db:
+        arcpy.AddMessage('\nFlushing Output DB')
+        arcpy.env.workspace = output_db
+        arcpy.AddMessage(f'Contents of Output DB Before Flush {arcpy.ListFeatureClasses()}')
+        for fc in arcpy.ListFeatureClasses():
+            arcpy.AddMessage(f'Deleting: {fc}')
+            if arcpy.Exists(fc):
+                arcpy.Delete_management(fc)
+        arcpy.AddMessage(f'Contents of Output DB After Flush {arcpy.ListFeatureClasses()}\n')
     # Setup Geoprocessing Environment
     spatial_ref_dataset = config_dict.get('spatial_ref_dataset')
     input_db = config_dict.get('input_gdb_dir')
@@ -179,12 +191,41 @@ def export_map(subtitle):
     logger.debug('Export map complete.')
 
 
+def input_gui():
+    logger.debug('Starting input gui.')
+    user_inputs = None
+
+    def get_inputs():
+        nonlocal user_inputs
+        user_inputs = {'intersect_fc': p1.get(), 'buf_distance': p2.get(), 'map_subtitle': p3.get()}
+
+    gui = tk.Tk()
+    gui.wm_title('West Nile Virus Simulation Inputs')
+    tk.Label(gui, text='Intersect feature class name, example: IntersectAnalysis').grid(sticky=tk.W, row=0)
+    p1 = tk.Entry(gui)
+    p1.grid(row=0, column=1)
+    tk.Label(gui, text='Buffer distance, example: 2500 Feet').grid(sticky=tk.W, row=1)
+    p2 = tk.Entry(gui)
+    p2.grid(row=1, column=1)
+    tk.Label(gui, text='Map subtitle, example: 2500 Feet').grid(sticky=tk.W, row=2)
+    p3 = tk.Entry(gui)
+    p3.grid(row=2, column=1)
+    tk.Button(gui, text='Submit', command=get_inputs).grid(row=3, column=0, sticky=tk.W, pady=4)
+    # Quit button hangs while program completes then gui crashes, workaround: close the window after inputs.
+    # tk.Button(gui, text='Quit', command=gui.quit).grid(row=3, column=1, sticky=tk.W, pady=4)
+    gui.mainloop()
+
+    logger.debug('Input gui complete.')
+
+    return user_inputs
+
+
 def run_model():
     # setup the logger to generate log file use commands: logger.debug(msg), logger.info(msg)
     setup_logging(level='DEBUG', fn=f'{config_dict["proj_dir"]}/{config_dict["log_fn"]}')
 
     # enter the user inputs - expose to command line or user interface in future versions
-    user_inputs = {'intersect_fc': 'IntersectAnalysis', 'buf_distance': '2500 Feet', 'map_subtitle': 'hey_joe'}
+    user_inputs = input_gui()
     logger.info('Starting West Nile Virus Simulation')
     logger.info(f'Simulation Parameters: {user_inputs}')
 
@@ -240,7 +281,7 @@ def run_model():
     # https://pro.arcgis.com/en/pro-app/latest/tool-reference/analysis/clip.htm
     logger.debug('Starting Clip geoprocessing.')
     inFeatures = set_path(output_db, 'avoid_points_buf')
-    clipFeatures = set_path(output_db, 'IntersectAnalysis')
+    clipFeatures = set_path(output_db, user_inputs['intersect_fc'])
     clipOutput = set_path(output_db, 'clip_intersect')
 
     # Execute Clip
@@ -279,6 +320,6 @@ def run_model():
 
 
 if __name__ == '__main__':
-    arcgis_setup()
+    arcgis_setup(flush_output_db=True)
     run_etl()
     run_model()
