@@ -224,7 +224,7 @@ def run_model():
     # setup the logger to generate log file use commands: logger.debug(msg), logger.info(msg)
     setup_logging(level='DEBUG', fn=f'{config_dict["proj_dir"]}/{config_dict["log_fn"]}')
 
-    # enter the user inputs - expose to command line or user interface in future versions
+    # Start Input GUI
     user_inputs = input_gui()
     logger.info('Starting West Nile Virus Simulation')
     logger.info(f'Simulation Parameters: {user_inputs}')
