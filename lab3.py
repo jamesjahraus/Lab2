@@ -116,8 +116,8 @@ def buffer(aprx_mp, input_fc, output_fc, lyr_name, buf_distance):
     buf = arcpy.Buffer_analysis(input_fc, output_fc, buf_distance, "FULL",
                                 "ROUND", "ALL")
     check_status(buf)
-    lyr = arcpy.MakeFeatureLayer_management(output_fc, lyr_name)
-    aprx_mp.addLayer(lyr[0], 'TOP')
+    # lyr = arcpy.MakeFeatureLayer_management(output_fc, lyr_name)
+    # aprx_mp.addLayer(lyr[0], 'TOP')
     logger.debug('Buffer geoprocessing complete.')
 
 
@@ -141,9 +141,42 @@ def intersect(aprx_mp, fc_list, output_fc, lyr_name):
             break
     inter = arcpy.Intersect_analysis(fc_list, output_fc, "ALL")
     check_status(inter)
+    # lyr = arcpy.MakeFeatureLayer_management(output_fc, lyr_name)
+    # aprx_mp.addLayer(lyr[0], 'TOP')
+    logger.debug('Intersect geoprocessing complete.')
+
+
+def add_feature_to_map(aprx_mp, lyr_name, output_fc, colour):
+    logger.debug('Adding feature to map.')
+    for lyr in aprx_mp.listLayers():
+        if lyr.name == lyr_name:
+            arcpy.AddMessage(f'layer {0} already exists, deleting {lyr_name} ...')
+            aprx_mp.removeLayer(lyr)
+            break
     lyr = arcpy.MakeFeatureLayer_management(output_fc, lyr_name)
     aprx_mp.addLayer(lyr[0], 'TOP')
-    logger.debug('Intersect geoprocessing complete.')
+    for lyr in aprx_mp.listLayers():
+        if lyr.name == lyr_name:
+            sym = lyr.symbology
+            sym.renderer.symbol.color = {'RGB': colour}
+            lyr.symbology = sym
+    logger.debug('Add feature to map complete.')
+
+
+def export_map(subtitle):
+    logger.debug('Starting map export.')
+    # Setup aprx
+    aprx_path = set_path(config_dict.get('proj_dir'), 'WestNileOutbreak.aprx')
+    aprx = arcpy.mp.ArcGISProject(aprx_path)
+    lyt = aprx.listLayouts()[0]
+    for el in lyt.listElements():
+        arcpy.AddMessage(el.name)
+        if 'Title' in el.name:
+            el.text = f'{el.text} {subtitle}'
+            arcpy.AddMessage(el.text)
+    aprx.save()
+    lyt.exportToPDF(f'{config_dict["proj_dir"]}/wnv.pdf')
+    logger.debug('Export map complete.')
 
 
 def run_model():
@@ -151,7 +184,7 @@ def run_model():
     setup_logging(level='DEBUG', fn=f'{config_dict["proj_dir"]}/{config_dict["log_fn"]}')
 
     # enter the user inputs - expose to command line or user interface in future versions
-    user_inputs = {'intersect_fc': 'IntersectAnalysis', 'buf_distance': '2500 Feet'}
+    user_inputs = {'intersect_fc': 'IntersectAnalysis', 'buf_distance': '2500 Feet', 'map_subtitle': 'hey_joe'}
     logger.info('Starting West Nile Virus Simulation')
     logger.info(f'Simulation Parameters: {user_inputs}')
 
@@ -228,6 +261,21 @@ def run_model():
     logger.debug('Get Count geoprocessing complete.')
     arcpy.AddMessage(
         f'\nBoulder Addresses in risk zone that need to be opted out of pesticide spraying =  {record_count[0]}\n')
+
+    # Add desired features to output map and colour the features
+    map_features = [(user_inputs['intersect_fc'], [255, 235, 190, 100]),
+                    ('avoid_points_buf', [115, 178, 255, 100]),
+                    ('clip_intersect_Join_BoulderAddresses', [102, 119, 205, 100])]
+    for f, c in map_features:
+        fc_name = f
+        fc = set_path(output_db, f)
+        colour = c
+        add_feature_to_map(mp, fc_name, fc, colour)
+    aprx.save()
+
+    # Export final map
+    export_map(user_inputs['map_subtitle'])
+    aprx.save()
 
 
 if __name__ == '__main__':
