@@ -142,7 +142,7 @@ def intersect(aprx_mp, fc_list, output_fc, lyr_name):
 
 def run_model():
     # setup the logger to generate log file use commands: logger.debug(msg), logger.info(msg)
-    setup_logging(level='DEBUG')
+    setup_logging(level='DEBUG', fn=f'{config_dict["proj_dir"]}/{config_dict["log_fn"]}')
     logger.debug('test msg')
     logger.info('test msg')
 

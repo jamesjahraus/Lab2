@@ -27,7 +27,7 @@ def set_path(wd, data_path):
     path_name = os.path.join(wd, data_path)
     return path_name
 
-def setup_logging(level='INFO'):
+def setup_logging(level='INFO', fn='app.log'):
     r"""Configures the logger Level.
     Arguments:
         level: CRITICAL -> ERROR -> WARNING -> INFO -> DEBUG.
@@ -36,7 +36,7 @@ def setup_logging(level='INFO'):
     """
     ll = logging.getLevelName(level)
     logger = logging.getLogger()
-    handler = logging.FileHandler('app.log', mode='a')
+    handler = logging.FileHandler(fn, mode='a')
     formatter = logging.Formatter(
         "%(asctime)s %(name)-12s %(levelname)-8s"
         "{'file': %(filename)s 'function': %(funcName)s 'line': %(lineno)s}\n"
