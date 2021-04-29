@@ -77,9 +77,11 @@ def arcgis_setup():
 
 
 def run_etl():
+    logger.debug('Starting Etl process.')
     arcpy.AddMessage('Etl process starting...')
     etl_instance = etl.GSheetsEtl(config_dict)
     etl_instance.process()
+    logger.debug('Etl process complete.')
 
 
 def get_map(aprx, map_name):
@@ -105,6 +107,7 @@ def buffer(aprx_mp, input_fc, output_fc, lyr_name, buf_distance):
     Raises:
         N/A
     """
+    logger.debug('Starting Buffer geoprocessing.')
     for lyr in aprx_mp.listLayers():
         if lyr.name == lyr_name:
             arcpy.AddMessage(f'layer {0} already exists, deleting {lyr_name} ...')
@@ -115,6 +118,7 @@ def buffer(aprx_mp, input_fc, output_fc, lyr_name, buf_distance):
     check_status(buf)
     lyr = arcpy.MakeFeatureLayer_management(output_fc, lyr_name)
     aprx_mp.addLayer(lyr[0], 'TOP')
+    logger.debug('Buffer geoprocessing complete.')
 
 
 def intersect(aprx_mp, fc_list, output_fc, lyr_name):
@@ -129,6 +133,7 @@ def intersect(aprx_mp, fc_list, output_fc, lyr_name):
     Raises:
         N/A
     """
+    logger.debug('Starting Intersect geoprocessing.')
     for lyr in aprx_mp.listLayers():
         if lyr.name == lyr_name:
             arcpy.AddMessage(f'layer {lyr_name} already exists, deleting {lyr_name} ...')
@@ -138,16 +143,17 @@ def intersect(aprx_mp, fc_list, output_fc, lyr_name):
     check_status(inter)
     lyr = arcpy.MakeFeatureLayer_management(output_fc, lyr_name)
     aprx_mp.addLayer(lyr[0], 'TOP')
+    logger.debug('Intersect geoprocessing complete.')
 
 
 def run_model():
     # setup the logger to generate log file use commands: logger.debug(msg), logger.info(msg)
     setup_logging(level='DEBUG', fn=f'{config_dict["proj_dir"]}/{config_dict["log_fn"]}')
-    logger.debug('test msg')
-    logger.info('test msg')
 
     # enter the user inputs - expose to command line or user interface in future versions
     user_inputs = {'intersect_fc': 'IntersectAnalysis', 'buf_distance': '2500 Feet'}
+    logger.info('Starting West Nile Virus Simulation')
+    logger.info(f'Simulation Parameters: {user_inputs}')
 
     # setup arcpy environment
     output_db = config_dict.get('output_gdb_dir')
@@ -184,17 +190,22 @@ def run_model():
     aprx.save()
 
     # Query by Location
+    logger.debug('Starting Spatial Join geoprocessing.')
     join_output_name = 'IntersectAnalysis_Join_BoulderAddresses'
     jofc = set_path(output_db, join_output_name)
     sp = arcpy.SpatialJoin_analysis('Boulder_Addresses', inter, jofc, join_type="KEEP_COMMON", match_option="WITHIN")
     check_status(sp)
+    logger.debug('Spatial Join geoprocessing complete.')
 
     # Record Count
+    logger.debug('Starting Get Count geoprocessing.')
     record_count = arcpy.GetCount_management(jofc)
     arcpy.AddMessage(f'\nBoulder Addresses at-risk =  {record_count[0]}\n')
+    logger.debug('Get Count geoprocessing complete.')
 
     # Clip (Analysis)
     # https://pro.arcgis.com/en/pro-app/latest/tool-reference/analysis/clip.htm
+    logger.debug('Starting Clip geoprocessing.')
     inFeatures = set_path(output_db, 'avoid_points_buf')
     clipFeatures = set_path(output_db, 'IntersectAnalysis')
     clipOutput = set_path(output_db, 'clip_intersect')
@@ -202,14 +213,19 @@ def run_model():
     # Execute Clip
     c = arcpy.Clip_analysis(inFeatures, clipFeatures, clipOutput)
     check_status(c)
+    logger.debug('Clip geoprocessing complete.')
 
     # Record re-count
+    logger.debug('Starting Spatial Join geoprocessing.')
     join_output_name = 'clip_intersect_Join_BoulderAddresses'
     jofc = set_path(output_db, join_output_name)
     sp = arcpy.SpatialJoin_analysis('Boulder_Addresses', set_path(output_db, 'clip_intersect'), jofc,
                                     join_type="KEEP_COMMON", match_option="WITHIN")
     check_status(sp)
+    logger.debug('Spatial Join geoprocessing complete.')
+    logger.debug('Starting Get Count geoprocessing.')
     record_count = arcpy.GetCount_management(jofc)
+    logger.debug('Get Count geoprocessing complete.')
     arcpy.AddMessage(
         f'\nBoulder Addresses in risk zone that need to be opted out of pesticide spraying =  {record_count[0]}\n')
 
