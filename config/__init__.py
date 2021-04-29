@@ -1,6 +1,7 @@
 import yaml
 import sys
 import os
+import logging
 
 
 def pwd():
@@ -26,6 +27,23 @@ def set_path(wd, data_path):
     path_name = os.path.join(wd, data_path)
     return path_name
 
+def setup_logging(level='INFO'):
+    r"""Configures the logger Level.
+    Arguments:
+        level: CRITICAL -> ERROR -> WARNING -> INFO -> DEBUG.
+    Side effect:
+        The minimum logging level is set.
+    """
+    ll = logging.getLevelName(level)
+    logger = logging.getLogger()
+    handler = logging.FileHandler('app.log', mode='a')
+    formatter = logging.Formatter(
+        "%(asctime)s %(name)-12s %(levelname)-8s"
+        "{'file': %(filename)s 'function': %(funcName)s 'line': %(lineno)s}\n"
+        "message: %(message)s\n")
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.setLevel(ll)
 
 with open('config/wnvoutbreak.yaml') as f:
     config_dict_temp = yaml.load(f, Loader=yaml.FullLoader)
