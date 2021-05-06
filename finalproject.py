@@ -292,11 +292,13 @@ def set_spatial_reference(mp, spatial_reference):
     Raises:
         Description sentence.
     """
+    logger.debug('Starting set spatial reference.')
     try:
         # Set spatial reference
         mp.spatialReference = arcpy.SpatialReference(spatial_reference)
     except arcpy.ExecuteError:
         arcpy.AddError(arcpy.GetMessages(2))
+    logger.debug('Set spatial reference complete.')
 
 
 def add_feature_to_map(aprx_mp, lyr_name, output_fc, colour, transparency):
@@ -365,6 +367,7 @@ def render_layout(map_subtitle, map_features, map_spatial_reference, address_cou
     Raises:
         Description sentence.
     """
+    logger.debug('Starting render layout.')
     # Add desired features to output map and colour the features
     aprx_path = set_path(config_dict.get('proj_dir'), 'WestNileOutbreak.aprx')
     aprx = arcpy.mp.ArcGISProject(aprx_path)
@@ -379,6 +382,7 @@ def render_layout(map_subtitle, map_features, map_spatial_reference, address_cou
 
     # Export final map
     export_map(aprx, map_subtitle, address_count)
+    logger.debug('Render layout complete.')
 
 
 def generate_target_addresses_csv(fc):
@@ -391,6 +395,7 @@ def generate_target_addresses_csv(fc):
         Side effect is target_addresses.csv is created in the WestNileOutbreak project directory.
     """
     # Reference: https://pro.arcgis.com/en/pro-app/latest/arcpy/data-access/searchcursor-class.htm
+    logger.debug('Starting generate target addresses csv.')
     try:
         csv_path = f'{config_dict["proj_dir"]}/target_addresses.csv'
         with open(csv_path, 'w', newline='', encoding='utf-8') as f:
@@ -406,6 +411,7 @@ def generate_target_addresses_csv(fc):
                     writer.writerow(row_dict)
     except arcpy.ExecuteError:
         arcpy.AddError(arcpy.GetMessages(2))
+    logger.debug('Generate target addresses csv complete.')
 
 
 def run_analysis(output_db):
@@ -423,6 +429,7 @@ def run_analysis(output_db):
         Results dictionary with the addresses at risk and map subtitle.
         Side effect is final_analysis, avoid_points_buf, Target_Addresses exist in output_db
     """
+    logger.debug('Starting run analysis.')
     # Start Input GUI
     user_inputs = input_gui()
     logger.info(f'Simulation Parameters: {user_inputs}')
@@ -480,6 +487,7 @@ def run_analysis(output_db):
     # Create a dictionary of results for external use
     results = {'addresses_at_risk_count': addresses_at_risk_count,
                'map_subtitle': user_inputs['map_subtitle']}
+    logger.debug('Run analysis complete.')
     return results
 
 
