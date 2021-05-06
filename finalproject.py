@@ -104,36 +104,29 @@ def get_map(aprx, map_name):
     raise ValueError(f'Map called {map_name} does not exist in current aprx {aprx.filePath}')
 
 
-def buffer(aprx_mp, input_fc, output_fc, lyr_name, buf_distance):
+def buffer(input_fc, output_fc, buf_distance):
     r"""Run ArcGIS Pro tool Buffer.
     https://pro.arcgis.com/en/pro-app/latest/tool-reference/analysis/buffer.htm
 
     Arguments:
-        aprx_mp: mp object from aprx.listMaps()
         input_fc: Required feature class to buffer.
         output_fc: Output buffered feature class.
-        lyr_name: name of layer for the map
         buf_distance: Distance to buffer the feature class.
     Returns:
-        arcpy tool result object
+        Side effect is a buffer fc is output to a db.
     Raises:
         N/A
     """
     logger.debug('Starting Buffer geoprocessing.')
-    for lyr in aprx_mp.listLayers():
-        if lyr.name == lyr_name:
-            arcpy.AddMessage(f'layer {0} already exists, deleting {lyr_name} ...')
-            aprx_mp.removeLayer(lyr)
-            break
-    buf = arcpy.Buffer_analysis(input_fc, output_fc, buf_distance, "FULL",
-                                "ROUND", "ALL")
-    check_status(buf)
-    # lyr = arcpy.MakeFeatureLayer_management(output_fc, lyr_name)
-    # aprx_mp.addLayer(lyr[0], 'TOP')
+    try:
+        result = arcpy.Buffer_analysis(input_fc, output_fc, buf_distance, "FULL", "ROUND", "ALL")
+        check_status(result)
+    except arcpy.ExecuteError:
+        arcpy.AddError(arcpy.GetMessages(2))
     logger.debug('Buffer geoprocessing complete.')
 
 
-def intersect(aprx_mp, fc_list, output_fc, lyr_name):
+def intersect(fc_list, output_fc):
     r"""Run ArcGIS Pro tool Intersect.
     https://pro.arcgis.com/en/pro-app/latest/tool-reference/analysis/intersect.htm
 
@@ -141,20 +134,16 @@ def intersect(aprx_mp, fc_list, output_fc, lyr_name):
         fc_list: List of feature classes to run Intersect Analysis on.
         output_fc: Output intersect feature class.
     Returns:
-        arcpy tool result object
+        Side effect is an intersect fc is output to a db.
     Raises:
         N/A
     """
     logger.debug('Starting Intersect geoprocessing.')
-    for lyr in aprx_mp.listLayers():
-        if lyr.name == lyr_name:
-            arcpy.AddMessage(f'layer {lyr_name} already exists, deleting {lyr_name} ...')
-            aprx_mp.removeLayer(lyr)
-            break
-    inter = arcpy.Intersect_analysis(fc_list, output_fc, "ALL")
-    check_status(inter)
-    # lyr = arcpy.MakeFeatureLayer_management(output_fc, lyr_name)
-    # aprx_mp.addLayer(lyr[0], 'TOP')
+    try:
+        result = arcpy.Intersect_analysis(fc_list, output_fc, "ALL")
+        check_status(result)
+    except arcpy.ExecuteError:
+        arcpy.AddError(arcpy.GetMessages(2))
     logger.debug('Intersect geoprocessing complete.')
 
 
@@ -284,10 +273,9 @@ def run_model():
                    'avoid_points']
     for fc in buf_fc_list:
         buf_distance = user_inputs['buf_distance']
-        input_fc_name = fc
         buf_fc_name = f'{fc}_buf'
         buf_fc = set_path(output_db, buf_fc_name)
-        buffer(mp, input_fc_name, buf_fc, buf_fc_name, buf_distance)
+        buffer(fc, buf_fc, buf_distance)
 
     # Intersect Analysis
     # Create an intersect feature layer of all the high risk buffer areas.
@@ -296,21 +284,20 @@ def run_model():
     intersect_fc_list = []
     for fn in buf_fc_list:
         if fn == 'avoid_points':
-            arcpy.AddMessage(
-                '\nSkipping avoid_points for Intersect Analysis they will be used for Symmetrical Difference.\n')
+            arcpy.AddMessage('\nSkipping avoid_points not used for Intersect Analysis.\n')
         else:
             intersect_fn = set_path(output_db, f'{fn}_buf')
             intersect_fc_list.append(intersect_fn)
     intersect_fc_name = user_inputs['intersect_fc']
-    inter = set_path(output_db, intersect_fc_name)
-    intersect(mp, intersect_fc_list, inter, intersect_fc_name)
+    intersect_fc = set_path(output_db, intersect_fc_name)
+    intersect(intersect_fc_list, intersect_fc)
 
     # Erase the intersection of the intersect layer and the avoid points.
     # Pesticide control spraying needs to occur in the intersect layer.
     # However the city can not spray in the avoid points buffer.
     # Therefore the avoid points will be erased from the intersect layer.
     # The resulting layer will be safe for pesticide control spraying.
-    erase_input = inter
+    erase_input = intersect_fc
     erase_fc = set_path(output_db, 'avoid_points_buf')
     erase_output = set_path(output_db, 'final_analysis')
     erase(erase_input, erase_fc, erase_output)
