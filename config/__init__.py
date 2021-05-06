@@ -27,6 +27,7 @@ def set_path(wd, data_path):
     path_name = os.path.join(wd, data_path)
     return path_name
 
+
 def setup_logging(level='INFO', fn='app.log'):
     r"""Configures the logger Level.
     Arguments:
@@ -34,6 +35,8 @@ def setup_logging(level='INFO', fn='app.log'):
     Side effect:
         The minimum logging level is set.
     """
+    logging.getLogger("requests").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
     ll = logging.getLevelName(level)
     logger = logging.getLogger()
     handler = logging.FileHandler(fn, mode='a')
@@ -44,6 +47,7 @@ def setup_logging(level='INFO', fn='app.log'):
     handler.setFormatter(formatter)
     logger.addHandler(handler)
     logger.setLevel(ll)
+
 
 with open('config/wnvoutbreak.yaml') as f:
     config_dict_temp = yaml.load(f, Loader=yaml.FullLoader)
