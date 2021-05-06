@@ -158,6 +158,44 @@ def intersect(aprx_mp, fc_list, output_fc, lyr_name):
     logger.debug('Intersect geoprocessing complete.')
 
 
+def erase(input_fc, erase_fc, erase_output):
+    # Erase the erase_fc from the input_fc
+    # Reference: https://pro.arcgis.com/en/pro-app/latest/tool-reference/analysis/erase.htm
+    logger.debug('\nStarting erase')
+    try:
+        result = arcpy.Erase_analysis(input_fc, erase_fc, erase_output)
+        check_status(result)
+    except arcpy.ExecuteError:
+        arcpy.AddError(arcpy.GetMessages(2))
+    logger.debug('erase complete\n')
+
+
+def spatial_join(target_fc, join_fc, output_fc):
+    # Joins the join_fc to the target_fc and creates an output_fc
+    # Reference: https://pro.arcgis.com/en/pro-app/latest/tool-reference/analysis/spatial-join.htm
+    logger.debug('Starting Spatial Join geoprocessing.')
+    try:
+        result = arcpy.SpatialJoin_analysis(target_fc, join_fc, output_fc, join_type="KEEP_COMMON",
+                                            match_option="WITHIN")
+        check_status(result)
+    except arcpy.ExecuteError:
+        arcpy.AddError(arcpy.GetMessages(2))
+    logger.debug('Spatial Join geoprocessing complete.')
+
+
+def record_count(count_fc):
+    # Returns the record count of features in a feature class.
+    # Reference: https://pro.arcgis.com/en/pro-app/latest/tool-reference/data-management/get-count.htm
+    logger.debug('Starting Get Count geoprocessing.')
+    try:
+        result = arcpy.GetCount_management(count_fc)
+        check_status(result)
+        return result[0]
+    except arcpy.ExecuteError:
+        arcpy.AddError(arcpy.GetMessages(2))
+    logger.debug('Get Count geoprocessing complete.')
+
+
 def add_feature_to_map(aprx_mp, lyr_name, output_fc, colour):
     logger.debug('Adding feature to map.')
     for lyr in aprx_mp.listLayers():
@@ -221,7 +259,7 @@ def input_gui():
 
 
 def run_model():
-    # setup the logger to generate log file use commands: logger.debug(msg), logger.info(msg)
+    # Setup the logger to generate log file use commands: logger.debug(msg), logger.info(msg)
     setup_logging(level='DEBUG', fn=f'{config_dict["proj_dir"]}/{config_dict["log_fn"]}')
 
     # Start Input GUI
@@ -229,7 +267,7 @@ def run_model():
     logger.info('Starting West Nile Virus Simulation')
     logger.info(f'Simulation Parameters: {user_inputs}')
 
-    # setup arcpy environment
+    # Setup arcpy environment
     output_db = config_dict.get('output_gdb_dir')
     arcpy.AddMessage(f'output db: {output_db}')
     aprx_path = set_path(config_dict.get('proj_dir'), 'WestNileOutbreak.aprx')
@@ -238,6 +276,10 @@ def run_model():
     mp = get_map(aprx, 'Map')
 
     # Buffer Analysis
+    # Create buffers around high risk areas that will require pesticide control spraying.
+    # Avoid points is also buffered here for convenience.
+    # Avoid points will not be included in the intersect analysis.
+    # Avoid points buffer represents individuals that signed up to opt out of pesticide control spraying.
     buf_fc_list = ['Mosquito_Larval_Sites', 'Wetlands_Regulatory', 'Lakes_and_Reservoirs', 'OSMP_Properties',
                    'avoid_points']
     for fc in buf_fc_list:
@@ -246,10 +288,11 @@ def run_model():
         buf_fc_name = f'{fc}_buf'
         buf_fc = set_path(output_db, buf_fc_name)
         buffer(mp, input_fc_name, buf_fc, buf_fc_name, buf_distance)
-        aprx.save()
 
     # Intersect Analysis
-    # for loop is used to create intersect_fc_list for intersect function (including paths to output_db)
+    # Create an intersect feature layer of all the high risk buffer areas.
+    # The intersect feature layer represents the highest risk zone for West Nile Virus transmission.
+    # The intersect feature layer includes all areas that will require pesticide control spraying.
     intersect_fc_list = []
     for fn in buf_fc_list:
         if fn == 'avoid_points':
@@ -261,52 +304,33 @@ def run_model():
     intersect_fc_name = user_inputs['intersect_fc']
     inter = set_path(output_db, intersect_fc_name)
     intersect(mp, intersect_fc_list, inter, intersect_fc_name)
-    aprx.save()
 
-    # Query by Location
-    logger.debug('Starting Spatial Join geoprocessing.')
-    join_output_name = 'IntersectAnalysis_Join_BoulderAddresses'
-    jofc = set_path(output_db, join_output_name)
-    sp = arcpy.SpatialJoin_analysis('Boulder_Addresses', inter, jofc, join_type="KEEP_COMMON", match_option="WITHIN")
-    check_status(sp)
-    logger.debug('Spatial Join geoprocessing complete.')
+    # Erase the intersection of the intersect layer and the avoid points.
+    # Pesticide control spraying needs to occur in the intersect layer.
+    # However the city can not spray in the avoid points buffer.
+    # Therefore the avoid points will be erased from the intersect layer.
+    # The resulting layer will be safe for pesticide control spraying.
+    erase_input = inter
+    erase_fc = set_path(output_db, 'avoid_points_buf')
+    erase_output = set_path(output_db, 'final_analysis')
+    erase(erase_input, erase_fc, erase_output)
 
-    # Record Count
-    logger.debug('Starting Get Count geoprocessing.')
-    record_count = arcpy.GetCount_management(jofc)
-    arcpy.AddMessage(f'\nBoulder Addresses at-risk =  {record_count[0]}\n')
-    logger.debug('Get Count geoprocessing complete.')
-
-    # Clip (Analysis)
-    # https://pro.arcgis.com/en/pro-app/latest/tool-reference/analysis/clip.htm
-    logger.debug('Starting Clip geoprocessing.')
-    inFeatures = set_path(output_db, 'avoid_points_buf')
-    clipFeatures = set_path(output_db, user_inputs['intersect_fc'])
-    clipOutput = set_path(output_db, 'clip_intersect')
-
-    # Execute Clip
-    c = arcpy.Clip_analysis(inFeatures, clipFeatures, clipOutput)
-    check_status(c)
-    logger.debug('Clip geoprocessing complete.')
-
-    # Record re-count
-    logger.debug('Starting Spatial Join geoprocessing.')
-    join_output_name = 'clip_intersect_Join_BoulderAddresses'
-    jofc = set_path(output_db, join_output_name)
-    sp = arcpy.SpatialJoin_analysis('Boulder_Addresses', set_path(output_db, 'clip_intersect'), jofc,
-                                    join_type="KEEP_COMMON", match_option="WITHIN")
-    check_status(sp)
-    logger.debug('Spatial Join geoprocessing complete.')
-    logger.debug('Starting Get Count geoprocessing.')
-    record_count = arcpy.GetCount_management(jofc)
-    logger.debug('Get Count geoprocessing complete.')
-    arcpy.AddMessage(
-        f'\nBoulder Addresses in risk zone that need to be opted out of pesticide spraying =  {record_count[0]}\n')
+    # Perform a spatial join between Boulder_addresses and final_analysis.
+    # Then count the addresses in the Target_addresses layer.
+    # This count represents the addresses impacted by pesticide spraying.
+    # def spatial_join(target_fc, join_fc, output_fc):
+    # def record_count(count_fc):
+    target_fc = 'Boulder_Addresses'
+    join_fc = set_path(output_db, 'final_analysis')
+    join_output_fc = set_path(output_db, 'Target_Addresses')
+    spatial_join(target_fc, join_fc, join_output_fc)
+    addresses_at_risk = record_count(join_output_fc)
+    arcpy.AddMessage(f'\nBoulder Addresses at-risk =  {addresses_at_risk}\n')
 
     # Add desired features to output map and colour the features
-    map_features = [(user_inputs['intersect_fc'], [255, 235, 190, 100]),
+    map_features = [('final_analysis', [255, 235, 190, 100]),
                     ('avoid_points_buf', [115, 178, 255, 100]),
-                    ('clip_intersect_Join_BoulderAddresses', [102, 119, 205, 100])]
+                    ('Target_Addresses', [102, 119, 205, 100])]
     for f, c in map_features:
         fc_name = f
         fc = set_path(output_db, f)
