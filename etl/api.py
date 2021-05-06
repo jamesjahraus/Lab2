@@ -19,6 +19,13 @@ class SpatialEtl:
 
 
 class GSheetsEtl(SpatialEtl):
+    """
+    GSheetsEtl performs an extract, transform and load process using a URL to a google spreadsheet.
+    The spreadsheet must contain an address and zipcode column.
+
+    Parameters:
+        config_dict (dictionary): A dictionary containing all the key value pairs from the config yaml.
+    """
 
     def __init__(self, config_dict):
         super().__init__(config_dict)
