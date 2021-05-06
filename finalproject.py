@@ -43,6 +43,16 @@ def check_status(result):
 
 
 def setup_env(workspace_path, spatial_reference):
+    r"""Function summary.
+    Description sentence(s).
+    Arguments:
+        arg 1: Description sentence.
+        arg 2: Description sentence.
+    Returns:
+        Description sentence.
+    Raises:
+        Description sentence.
+    """
     # Set workspace path.
     arcpy.env.workspace = workspace_path
     arcpy.AddMessage('workspace(s): {}'.format(arcpy.env.workspace))
@@ -57,6 +67,16 @@ def setup_env(workspace_path, spatial_reference):
 
 
 def arcgis_setup(flush_output_db=False, spatial_reference=54016):
+    r"""Function summary.
+    Description sentence(s).
+    Arguments:
+        arg 1: Description sentence.
+        arg 2: Description sentence.
+    Returns:
+        Description sentence.
+    Raises:
+        Description sentence.
+    """
     # Default spatial reference - Gall stereographic projection
     # https://www.spatialreference.org/ref/esri/54016/
     # Optional flush output_db
@@ -76,6 +96,16 @@ def arcgis_setup(flush_output_db=False, spatial_reference=54016):
 
 
 def run_etl():
+    r"""Function summary.
+    Description sentence(s).
+    Arguments:
+        arg 1: Description sentence.
+        arg 2: Description sentence.
+    Returns:
+        Description sentence.
+    Raises:
+        Description sentence.
+    """
     logger.debug('Starting Etl process.')
     arcpy.AddMessage('Etl process starting...')
     etl_instance = etl.GSheetsEtl(config_dict)
@@ -84,6 +114,16 @@ def run_etl():
 
 
 def input_gui():
+    r"""Function summary.
+    Description sentence(s).
+    Arguments:
+        arg 1: Description sentence.
+        arg 2: Description sentence.
+    Returns:
+        Description sentence.
+    Raises:
+        Description sentence.
+    """
     logger.debug('Starting input gui.')
     user_inputs = None
 
@@ -156,6 +196,16 @@ def intersect(fc_list, output_fc):
 
 
 def erase(input_fc, erase_fc, erase_output):
+    r"""Function summary.
+    Description sentence(s).
+    Arguments:
+        arg 1: Description sentence.
+        arg 2: Description sentence.
+    Returns:
+        Description sentence.
+    Raises:
+        Description sentence.
+    """
     # Erase the erase_fc from the input_fc
     # Reference: https://pro.arcgis.com/en/pro-app/latest/tool-reference/analysis/erase.htm
     logger.debug('\nStarting erase')
@@ -168,6 +218,16 @@ def erase(input_fc, erase_fc, erase_output):
 
 
 def spatial_join(target_fc, join_fc, output_fc):
+    r"""Function summary.
+    Description sentence(s).
+    Arguments:
+        arg 1: Description sentence.
+        arg 2: Description sentence.
+    Returns:
+        Description sentence.
+    Raises:
+        Description sentence.
+    """
     # Joins the join_fc to the target_fc and creates an output_fc
     # Reference: https://pro.arcgis.com/en/pro-app/latest/tool-reference/analysis/spatial-join.htm
     logger.debug('Starting Spatial Join geoprocessing.')
@@ -181,6 +241,16 @@ def spatial_join(target_fc, join_fc, output_fc):
 
 
 def record_count(count_fc):
+    r"""Function summary.
+    Description sentence(s).
+    Arguments:
+        arg 1: Description sentence.
+        arg 2: Description sentence.
+    Returns:
+        Description sentence.
+    Raises:
+        Description sentence.
+    """
     # Returns the record count of features in a feature class.
     # Reference: https://pro.arcgis.com/en/pro-app/latest/tool-reference/data-management/get-count.htm
     logger.debug('Starting Get Count geoprocessing.')
@@ -194,6 +264,16 @@ def record_count(count_fc):
 
 
 def get_map(aprx, map_name):
+    r"""Function summary.
+    Description sentence(s).
+    Arguments:
+        arg 1: Description sentence.
+        arg 2: Description sentence.
+    Returns:
+        Description sentence.
+    Raises:
+        Description sentence.
+    """
     for mp in aprx.listMaps():
         if map_name == mp.name:
             arcpy.AddMessage(f'Map called {mp.name} found')
@@ -202,6 +282,16 @@ def get_map(aprx, map_name):
 
 
 def set_spatial_reference(mp, spatial_reference):
+    r"""Function summary.
+    Description sentence(s).
+    Arguments:
+        arg 1: Description sentence.
+        arg 2: Description sentence.
+    Returns:
+        Description sentence.
+    Raises:
+        Description sentence.
+    """
     try:
         # Set spatial reference
         mp.spatialReference = arcpy.SpatialReference(spatial_reference)
@@ -210,6 +300,16 @@ def set_spatial_reference(mp, spatial_reference):
 
 
 def add_feature_to_map(aprx_mp, lyr_name, output_fc, colour, transparency):
+    r"""Function summary.
+    Description sentence(s).
+    Arguments:
+        arg 1: Description sentence.
+        arg 2: Description sentence.
+    Returns:
+        Description sentence.
+    Raises:
+        Description sentence.
+    """
     logger.debug('Adding feature to map.')
     arcpy.AddMessage('\nAdding feature to map.')
     for lyr in aprx_mp.listLayers():
@@ -230,6 +330,16 @@ def add_feature_to_map(aprx_mp, lyr_name, output_fc, colour, transparency):
 
 
 def export_map(aprx, subtitle, address_count):
+    r"""Function summary.
+    Description sentence(s).
+    Arguments:
+        arg 1: Description sentence.
+        arg 2: Description sentence.
+    Returns:
+        Description sentence.
+    Raises:
+        Description sentence.
+    """
     logger.debug('Starting map export.')
     lyt = aprx.listLayouts()[0]
     for el in lyt.listElements():
@@ -245,6 +355,16 @@ def export_map(aprx, subtitle, address_count):
 
 
 def render_layout(map_subtitle, map_features, map_spatial_reference, address_count, output_db):
+    r"""Function summary.
+    Description sentence(s).
+    Arguments:
+        arg 1: Description sentence.
+        arg 2: Description sentence.
+    Returns:
+        Description sentence.
+    Raises:
+        Description sentence.
+    """
     # Add desired features to output map and colour the features
     aprx_path = set_path(config_dict.get('proj_dir'), 'WestNileOutbreak.aprx')
     aprx = arcpy.mp.ArcGISProject(aprx_path)
@@ -262,6 +382,14 @@ def render_layout(map_subtitle, map_features, map_spatial_reference, address_cou
 
 
 def generate_target_addresses_csv(fc):
+    r"""Generates target_addresses.csv
+    Generates a csv containing all the final target addresses that will require spraying.
+    Assumes there is a field called 'FULLADDR' in the input feature class.
+    Arguments:
+        fc: The target addresses feature class.
+    Returns:
+        Side effect is target_addresses.csv is created in the WestNileOutbreak project directory.
+    """
     # Reference: https://pro.arcgis.com/en/pro-app/latest/arcpy/data-access/searchcursor-class.htm
     try:
         csv_path = f'{config_dict["proj_dir"]}/target_addresses.csv'
@@ -281,9 +409,22 @@ def generate_target_addresses_csv(fc):
 
 
 def run_analysis(output_db):
+    r"""Analysis orchestration.
+    Coordinates geospatial analysis operations to create required output feature classes:
+     - final_analysis
+     - avoid_points_buf
+     - Target_Addresses
+
+    No try except block included because these exist in helper functions called by this function.
+
+    Arguments:
+        output_db: path of the output data base so each geoprocessing tool can write ouput feature classes.
+    Returns:
+        Results dictionary with the addresses at risk and map subtitle.
+        Side effect is final_analysis, avoid_points_buf, Target_Addresses exist in output_db
+    """
     # Start Input GUI
     user_inputs = input_gui()
-    logger.info('Starting West Nile Virus Simulation')
     logger.info(f'Simulation Parameters: {user_inputs}')
 
     # Buffer Analysis
@@ -343,6 +484,13 @@ def run_analysis(output_db):
 
 
 def main(flush_output_db=False):
+    r"""main orchestration
+    Coordinates the major operations of the West Nile Outbreak project.
+    No try except block included because these exist in helper functions called by this function.
+    Arguments:
+        flush_output_db=False means contents of the output db will not be deleted.
+        flush_output_db=True means contents of the output db will be deleted.
+    """
     # Setup geoprocessing environment.
     # NAD 1983 StatePlane Colorado North: https://www.spatialreference.org/ref/esri/102653/
     pcs = 102653
@@ -353,6 +501,8 @@ def main(flush_output_db=False):
     # Setup output db
     output_db = config_dict.get('output_gdb_dir')
     arcpy.AddMessage(f'output db: {output_db}')
+
+    logger.info('Starting West Nile Virus Simulation')
 
     # ----- run_etl -----
     # Run etl, generates the avoid_points feature class.
