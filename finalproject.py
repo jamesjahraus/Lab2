@@ -8,35 +8,6 @@ from config import config_dict, set_path, setup_logging
 logger = logging.getLogger(__name__)
 
 
-def import_spatial_reference(dataset):
-    r"""Extracts the spatial reference from input dataset.
-
-    Arguments:
-        dataset: Dataset with desired spatial reference.
-    Returns:
-        The spatial reference of any dataset input.
-    """
-    spatial_reference = arcpy.Describe(dataset).spatialReference
-    arcpy.AddMessage(f'spatial_reference: {spatial_reference.name}')
-    return spatial_reference
-
-
-def setup_env(workspace_path, spatial_ref_dataset):
-    # Set workspace path.
-    arcpy.env.workspace = workspace_path
-    arcpy.AddMessage('workspace(s): {}'.format(arcpy.env.workspace))
-
-    # Set output overwrite option.
-    arcpy.env.overwriteOutput = True
-    arcpy.AddMessage('overwriteOutput: {}'.format(arcpy.env.overwriteOutput))
-
-    # Set the output spatial reference.
-    arcpy.env.outputCoordinateSystem = import_spatial_reference(
-        spatial_ref_dataset)
-    arcpy.AddMessage('outputCoordinateSystem: {}'.format(
-        arcpy.env.outputCoordinateSystem.name))
-
-
 def check_status(result):
     r"""Logs the status of executing geoprocessing tools.
 
@@ -70,7 +41,23 @@ def check_status(result):
     return messages
 
 
-def arcgis_setup(flush_output_db=False):
+def setup_env(workspace_path, spatial_reference):
+    # Set workspace path.
+    arcpy.env.workspace = workspace_path
+    arcpy.AddMessage('workspace(s): {}'.format(arcpy.env.workspace))
+
+    # Set output overwrite option.
+    arcpy.env.overwriteOutput = True
+    arcpy.AddMessage('overwriteOutput: {}'.format(arcpy.env.overwriteOutput))
+
+    # Set the output spatial reference.
+    arcpy.env.outputCoordinateSystem = arcpy.SpatialReference(spatial_reference)
+    arcpy.AddMessage(f'outputCoordinateSystem: {arcpy.env.outputCoordinateSystem.name}')
+
+
+def arcgis_setup(flush_output_db=False, spatial_reference=54016):
+    # Default spatial reference - Gall stereographic projection
+    # https://www.spatialreference.org/ref/esri/54016/
     # Optional flush output_db
     output_db = config_dict.get('output_gdb_dir')
     if flush_output_db:
@@ -83,9 +70,8 @@ def arcgis_setup(flush_output_db=False):
                 arcpy.Delete_management(fc)
         arcpy.AddMessage(f'Contents of Output DB After Flush {arcpy.ListFeatureClasses()}\n')
     # Setup Geoprocessing Environment
-    spatial_ref_dataset = config_dict.get('spatial_ref_dataset')
     input_db = config_dict.get('input_gdb_dir')
-    setup_env(input_db, spatial_ref_dataset)
+    setup_env(input_db, spatial_reference)
 
 
 def run_etl():
@@ -96,12 +82,33 @@ def run_etl():
     logger.debug('Etl process complete.')
 
 
-def get_map(aprx, map_name):
-    for mp in aprx.listMaps():
-        if map_name == mp.name:
-            arcpy.AddMessage(f'Map called {mp.name} found')
-            return mp
-    raise ValueError(f'Map called {map_name} does not exist in current aprx {aprx.filePath}')
+def input_gui():
+    logger.debug('Starting input gui.')
+    user_inputs = None
+
+    def get_inputs():
+        nonlocal user_inputs
+        user_inputs = {'intersect_fc': p1.get(), 'buf_distance': p2.get(), 'map_subtitle': p3.get()}
+
+    gui = tk.Tk()
+    gui.wm_title('West Nile Virus Simulation Inputs')
+    tk.Label(gui, text='Intersect feature class name, example: IntersectAnalysis').grid(sticky=tk.W, row=0)
+    p1 = tk.Entry(gui)
+    p1.grid(row=0, column=1)
+    tk.Label(gui, text='Buffer distance, example: 2500 Feet').grid(sticky=tk.W, row=1)
+    p2 = tk.Entry(gui)
+    p2.grid(row=1, column=1)
+    tk.Label(gui, text='Map subtitle, example: 2500 Feet').grid(sticky=tk.W, row=2)
+    p3 = tk.Entry(gui)
+    p3.grid(row=2, column=1)
+    tk.Button(gui, text='Submit', command=get_inputs).grid(row=3, column=0, sticky=tk.W, pady=4)
+    # Quit button hangs while program completes then gui crashes, workaround: close the window after inputs.
+    # tk.Button(gui, text='Quit', command=gui.quit).grid(row=3, column=1, sticky=tk.W, pady=4)
+    gui.mainloop()
+
+    logger.debug('Input gui complete.')
+
+    return user_inputs
 
 
 def buffer(input_fc, output_fc, buf_distance):
@@ -185,6 +192,14 @@ def record_count(count_fc):
     logger.debug('Get Count geoprocessing complete.')
 
 
+def get_map(aprx, map_name):
+    for mp in aprx.listMaps():
+        if map_name == mp.name:
+            arcpy.AddMessage(f'Map called {mp.name} found')
+            return mp
+    raise ValueError(f'Map called {map_name} does not exist in current aprx {aprx.filePath}')
+
+
 def add_feature_to_map(aprx_mp, lyr_name, output_fc, colour):
     logger.debug('Adding feature to map.')
     for lyr in aprx_mp.listLayers():
@@ -218,35 +233,6 @@ def export_map(subtitle):
     logger.debug('Export map complete.')
 
 
-def input_gui():
-    logger.debug('Starting input gui.')
-    user_inputs = None
-
-    def get_inputs():
-        nonlocal user_inputs
-        user_inputs = {'intersect_fc': p1.get(), 'buf_distance': p2.get(), 'map_subtitle': p3.get()}
-
-    gui = tk.Tk()
-    gui.wm_title('West Nile Virus Simulation Inputs')
-    tk.Label(gui, text='Intersect feature class name, example: IntersectAnalysis').grid(sticky=tk.W, row=0)
-    p1 = tk.Entry(gui)
-    p1.grid(row=0, column=1)
-    tk.Label(gui, text='Buffer distance, example: 2500 Feet').grid(sticky=tk.W, row=1)
-    p2 = tk.Entry(gui)
-    p2.grid(row=1, column=1)
-    tk.Label(gui, text='Map subtitle, example: 2500 Feet').grid(sticky=tk.W, row=2)
-    p3 = tk.Entry(gui)
-    p3.grid(row=2, column=1)
-    tk.Button(gui, text='Submit', command=get_inputs).grid(row=3, column=0, sticky=tk.W, pady=4)
-    # Quit button hangs while program completes then gui crashes, workaround: close the window after inputs.
-    # tk.Button(gui, text='Quit', command=gui.quit).grid(row=3, column=1, sticky=tk.W, pady=4)
-    gui.mainloop()
-
-    logger.debug('Input gui complete.')
-
-    return user_inputs
-
-
 def run_model():
     # Setup the logger to generate log file use commands: logger.debug(msg), logger.info(msg)
     setup_logging(level='DEBUG', fn=f'{config_dict["proj_dir"]}/{config_dict["log_fn"]}')
@@ -256,13 +242,9 @@ def run_model():
     logger.info('Starting West Nile Virus Simulation')
     logger.info(f'Simulation Parameters: {user_inputs}')
 
-    # Setup arcpy environment
+    # Setup output db
     output_db = config_dict.get('output_gdb_dir')
     arcpy.AddMessage(f'output db: {output_db}')
-    aprx_path = set_path(config_dict.get('proj_dir'), 'WestNileOutbreak.aprx')
-    aprx = arcpy.mp.ArcGISProject(aprx_path)
-    arcpy.AddMessage(f'aprx path: {aprx.filePath}')
-    mp = get_map(aprx, 'Map')
 
     # Buffer Analysis
     # Create buffers around high risk areas that will require pesticide control spraying.
@@ -315,6 +297,10 @@ def run_model():
     arcpy.AddMessage(f'\nBoulder Addresses at-risk =  {addresses_at_risk}\n')
 
     # Add desired features to output map and colour the features
+    aprx_path = set_path(config_dict.get('proj_dir'), 'WestNileOutbreak.aprx')
+    aprx = arcpy.mp.ArcGISProject(aprx_path)
+    arcpy.AddMessage(f'aprx path: {aprx.filePath}')
+    mp = get_map(aprx, 'Map')
     map_features = [('final_analysis', [255, 235, 190, 100]),
                     ('avoid_points_buf', [115, 178, 255, 100]),
                     ('Target_Addresses', [102, 119, 205, 100])]
@@ -331,6 +317,9 @@ def run_model():
 
 
 if __name__ == '__main__':
-    arcgis_setup(flush_output_db=True)
+    # NAD 1983 StatePlane Colorado North
+    # https://www.spatialreference.org/ref/esri/102653/
+    pcs = 102653
+    arcgis_setup(flush_output_db=True, spatial_reference=pcs)
     run_etl()
     run_model()
