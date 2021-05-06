@@ -200,8 +200,17 @@ def get_map(aprx, map_name):
     raise ValueError(f'Map called {map_name} does not exist in current aprx {aprx.filePath}')
 
 
-def add_feature_to_map(aprx_mp, lyr_name, output_fc, colour):
+def set_spatial_reference(mp, spatial_reference):
+    try:
+        # Set spatial reference
+        mp.spatialReference = arcpy.SpatialReference(spatial_reference)
+    except arcpy.ExecuteError:
+        arcpy.AddError(arcpy.GetMessages(2))
+
+
+def add_feature_to_map(aprx_mp, lyr_name, output_fc, colour, transparency):
     logger.debug('Adding feature to map.')
+    arcpy.AddMessage('\nAdding feature to map ---------------------------------')
     for lyr in aprx_mp.listLayers():
         if lyr.name == lyr_name:
             arcpy.AddMessage(f'layer {0} already exists, deleting {lyr_name} ...')
@@ -213,38 +222,49 @@ def add_feature_to_map(aprx_mp, lyr_name, output_fc, colour):
         if lyr.name == lyr_name:
             sym = lyr.symbology
             sym.renderer.symbol.color = {'RGB': colour}
+            sym.renderer.symbol.outlineColor = {'RGB': [0, 0, 0, 100]}
             lyr.symbology = sym
+            lyr.transparency = transparency
     logger.debug('Add feature to map complete.')
 
 
-def export_map(subtitle):
+def export_map(aprx, subtitle, address_count):
     logger.debug('Starting map export.')
-    # Setup aprx
-    aprx_path = set_path(config_dict.get('proj_dir'), 'WestNileOutbreak.aprx')
-    aprx = arcpy.mp.ArcGISProject(aprx_path)
     lyt = aprx.listLayouts()[0]
     for el in lyt.listElements():
         arcpy.AddMessage(el.name)
         if 'Title' in el.name:
             el.text = f'{el.text} {subtitle}'
             arcpy.AddMessage(el.text)
-    aprx.save()
+        elif 'AddressCount' in el.name:
+            el.text = f'{el.text} {address_count}'
+            arcpy.AddMessage(el.text)
     lyt.exportToPDF(f'{config_dict["proj_dir"]}/wnv.pdf')
     logger.debug('Export map complete.')
 
 
-def run_model():
-    # Setup the logger to generate log file use commands: logger.debug(msg), logger.info(msg)
-    setup_logging(level='DEBUG', fn=f'{config_dict["proj_dir"]}/{config_dict["log_fn"]}')
+def render_layout(map_subtitle, map_features, map_spatial_reference, address_count, output_db):
+    # Add desired features to output map and colour the features
+    aprx_path = set_path(config_dict.get('proj_dir'), 'WestNileOutbreak.aprx')
+    aprx = arcpy.mp.ArcGISProject(aprx_path)
+    arcpy.AddMessage(f'aprx path: {aprx.filePath}')
+    mp = get_map(aprx, 'Map')
+    set_spatial_reference(mp, map_spatial_reference)
+    for f, c in map_features:
+        fc_name = f
+        fc = set_path(output_db, f)
+        colour = c
+        add_feature_to_map(mp, fc_name, fc, colour, transparency=50)
 
+    # Export final map
+    export_map(aprx, map_subtitle, address_count)
+
+
+def run_analysis(output_db):
     # Start Input GUI
     user_inputs = input_gui()
     logger.info('Starting West Nile Virus Simulation')
     logger.info(f'Simulation Parameters: {user_inputs}')
-
-    # Setup output db
-    output_db = config_dict.get('output_gdb_dir')
-    arcpy.AddMessage(f'output db: {output_db}')
 
     # Buffer Analysis
     # Create buffers around high risk areas that will require pesticide control spraying.
@@ -293,33 +313,46 @@ def run_model():
     join_fc = set_path(output_db, 'final_analysis')
     join_output_fc = set_path(output_db, 'Target_Addresses')
     spatial_join(target_fc, join_fc, join_output_fc)
-    addresses_at_risk = record_count(join_output_fc)
-    arcpy.AddMessage(f'\nBoulder Addresses at-risk =  {addresses_at_risk}\n')
+    addresses_at_risk_count = record_count(join_output_fc)
+    arcpy.AddMessage(f'\nBoulder Addresses at-risk =  {addresses_at_risk_count}\n')
 
-    # Add desired features to output map and colour the features
-    aprx_path = set_path(config_dict.get('proj_dir'), 'WestNileOutbreak.aprx')
-    aprx = arcpy.mp.ArcGISProject(aprx_path)
-    arcpy.AddMessage(f'aprx path: {aprx.filePath}')
-    mp = get_map(aprx, 'Map')
-    map_features = [('final_analysis', [255, 235, 190, 100]),
+    # Create a dictionary of results for external use
+    results = {'addresses_at_risk_count': addresses_at_risk_count,
+               'map_subtitle': user_inputs['map_subtitle']}
+    return results
+
+
+def main(flush_output_db=False):
+    # Setup geoprocessing environment.
+    # NAD 1983 StatePlane Colorado North: https://www.spatialreference.org/ref/esri/102653/
+    pcs = 102653
+    # Setup the logger to generate log file use commands: logger.debug(msg), logger.info(msg)
+    setup_logging(level='DEBUG', fn=f'{config_dict["proj_dir"]}/{config_dict["log_fn"]}')
+    # Setup arcgis environment
+    arcgis_setup(flush_output_db, spatial_reference=pcs)
+    # Setup output db
+    output_db = config_dict.get('output_gdb_dir')
+    arcpy.AddMessage(f'output db: {output_db}')
+
+    # ----- run_etl -----
+    # Run etl, generates the avoid_points feature class.
+    run_etl()
+
+    # ----- run_analysis -----
+    # Run Analysis to create the final analysis features.
+    analysis_results_dictionary = run_analysis(output_db)
+
+    # ----- render_layout -----
+    # Render the map including analysis features, correct colours, subtitle, and addresses at risk count.
+    # analysis_results_dictionary = {'map_subtitle': 'debug subtitle', 'addresses_at_risk_count': 123}
+    map_features = [('final_analysis', [255, 0, 0, 100]),
                     ('avoid_points_buf', [115, 178, 255, 100]),
                     ('Target_Addresses', [102, 119, 205, 100])]
-    for f, c in map_features:
-        fc_name = f
-        fc = set_path(output_db, f)
-        colour = c
-        add_feature_to_map(mp, fc_name, fc, colour)
-    aprx.save()
-
-    # Export final map
-    export_map(user_inputs['map_subtitle'])
-    aprx.save()
+    map_subtitle = analysis_results_dictionary['map_subtitle']
+    map_spatial_reference = pcs
+    address_count = analysis_results_dictionary['addresses_at_risk_count']
+    render_layout(map_subtitle, map_features, map_spatial_reference, address_count, output_db)
 
 
 if __name__ == '__main__':
-    # NAD 1983 StatePlane Colorado North
-    # https://www.spatialreference.org/ref/esri/102653/
-    pcs = 102653
-    arcgis_setup(flush_output_db=True, spatial_reference=pcs)
-    run_etl()
-    run_model()
+    main(flush_output_db=True)
