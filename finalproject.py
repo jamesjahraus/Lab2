@@ -1,4 +1,5 @@
 import time
+import csv
 import arcpy
 import etl
 import logging
@@ -210,7 +211,7 @@ def set_spatial_reference(mp, spatial_reference):
 
 def add_feature_to_map(aprx_mp, lyr_name, output_fc, colour, transparency):
     logger.debug('Adding feature to map.')
-    arcpy.AddMessage('\nAdding feature to map ---------------------------------')
+    arcpy.AddMessage('\nAdding feature to map.')
     for lyr in aprx_mp.listLayers():
         if lyr.name == lyr_name:
             arcpy.AddMessage(f'layer {0} already exists, deleting {lyr_name} ...')
@@ -258,6 +259,25 @@ def render_layout(map_subtitle, map_features, map_spatial_reference, address_cou
 
     # Export final map
     export_map(aprx, map_subtitle, address_count)
+
+
+def generate_target_addresses_csv(fc):
+    # Reference: https://pro.arcgis.com/en/pro-app/latest/arcpy/data-access/searchcursor-class.htm
+    try:
+        csv_path = f'{config_dict["proj_dir"]}/target_addresses.csv'
+        with open(csv_path, 'w', newline='', encoding='utf-8') as f:
+            fieldnames = ['TargetAddresses']
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            fields = ['FULLADDR']
+            with arcpy.da.SearchCursor(fc, fields) as cursor:
+                for row in cursor:
+                    # arcpy.AddMessage(f'Address = {row[0]}')
+                    row_dict = {'TargetAddresses': row[0]}
+                    # arcpy.AddMessage(f'Writing row to new_addresses.csv: {row_dict}')
+                    writer.writerow(row_dict)
+    except arcpy.ExecuteError:
+        arcpy.AddError(arcpy.GetMessages(2))
 
 
 def run_analysis(output_db):
@@ -352,6 +372,11 @@ def main(flush_output_db=False):
     map_spatial_reference = pcs
     address_count = analysis_results_dictionary['addresses_at_risk_count']
     render_layout(map_subtitle, map_features, map_spatial_reference, address_count, output_db)
+
+    # ----- generate_report -----
+    # Generate a csv report in the WestNileOutbreak directory with the Target Addresses that require spraying.
+    target_addresses_fc = set_path(output_db, 'Target_Addresses')
+    generate_target_addresses_csv(target_addresses_fc)
 
 
 if __name__ == '__main__':
