@@ -1,3 +1,12 @@
+""" GIS 305 Final Project.
+
+West Nile Virus Outbreak Simulation
+
+Author: https://github.com/jamesjahraus
+
+ArcGIS Pro Python reference:
+https://pro.arcgis.com/en/pro-app/latest/arcpy/main/arcgis-pro-arcpy-reference.htm
+"""
 import time
 import csv
 import arcpy
@@ -9,6 +18,37 @@ from config import config_dict, set_path, setup_logging
 logger = logging.getLogger(__name__)
 
 
+def error_handler(func):
+    """ Decorator to handle repetitive logging and try except code.
+
+    Handling exceptions in Python a cleaner way, using Decorators:
+    https://medium.com/swlh/handling-exceptions-in-python-a-cleaner-way-using-decorators-fae22aa0abec
+
+    Args:
+        func:
+
+    Returns:
+
+    """
+
+    def inner_func(*args, **kwargs):
+        try:
+            logger.debug(f'Starting execution of {func.__name__} firstlineno: {func.__code__.co_firstlineno}.')
+            result = func(*args, **kwargs)
+            logger.debug(f'Completed execution of {func.__name__} firstlineno: {func.__code__.co_firstlineno}.')
+            return result
+        except arcpy.ExecuteError:
+            arcpy.AddError(arcpy.GetMessages(2))
+        except Exception as e:
+            arcpy.AddMessage(
+                f'Execution of {func.__name__} firstlineno: {func.__code__.co_firstlineno} failed due to error: {e}.')
+            logger.error(
+                f'Execution of {func.__name__} firstlineno: {func.__code__.co_firstlineno} failed due to error: {e}.')
+
+    return inner_func
+
+
+@error_handler
 def check_status(result):
     r"""Logs the status of executing geoprocessing tools.
 
@@ -20,7 +60,7 @@ def check_status(result):
     Understanding message types and severity:
     https://pro.arcgis.com/en/pro-app/arcpy/geoprocessing_and_python/message-types-and-severity.htm
 
-    Arguments:
+    Args:
         result: An executing geoprocessing tool object.
     Returns:
         Requires futher investigation on what result.getMessages() means on return.
@@ -42,16 +82,15 @@ def check_status(result):
     return messages
 
 
+@error_handler
 def setup_env(workspace_path, spatial_reference):
-    r"""Function summary.
+    r"""Setup arcpy geoprocessing workspace.
     Description sentence(s).
-    Arguments:
-        arg 1: Description sentence.
-        arg 2: Description sentence.
+    Args:
+        workspace_path: the path to the ArcGIS Pro default db.
+        spatial_reference: the desired spatial reference.
     Returns:
-        Description sentence.
-    Raises:
-        Description sentence.
+        Side effect is ArcGIS Pro workspace is setup with desired db, spatial reference, and overwriteOutput = True.
     """
     # Set workspace path.
     arcpy.env.workspace = workspace_path
@@ -66,20 +105,18 @@ def setup_env(workspace_path, spatial_reference):
     arcpy.AddMessage(f'outputCoordinateSystem: {arcpy.env.outputCoordinateSystem.name}')
 
 
+@error_handler
 def arcgis_setup(flush_output_db=False, spatial_reference=54016):
-    r"""Function summary.
-    Description sentence(s).
-    Arguments:
-        arg 1: Description sentence.
-        arg 2: Description sentence.
+    r"""Orchestration for setting up the arcpy geoprocessing workspace.
+
+    Args:
+        flush_output_db=False: contents of output db will not be deleted.
+        flush_output_db=True: contents of output db will be deleted.
+        spatial_reference=54016: Default spatial reference
+            Gall stereographic projection https://www.spatialreference.org/ref/esri/54016/
     Returns:
-        Description sentence.
-    Raises:
-        Description sentence.
+        Side effect is output db is setup, and ArcGIS Pro workspace orchestration is started with correct db.
     """
-    # Default spatial reference - Gall stereographic projection
-    # https://www.spatialreference.org/ref/esri/54016/
-    # Optional flush output_db
     output_db = config_dict.get('output_gdb_dir')
     if flush_output_db:
         arcpy.AddMessage('\nFlushing Output DB')
@@ -95,6 +132,7 @@ def arcgis_setup(flush_output_db=False, spatial_reference=54016):
     setup_env(input_db, spatial_reference)
 
 
+@error_handler
 def run_etl():
     r"""Function summary.
     Description sentence(s).
@@ -106,13 +144,11 @@ def run_etl():
     Raises:
         Description sentence.
     """
-    logger.debug('Starting Etl process.')
-    arcpy.AddMessage('Etl process starting...')
     etl_instance = etl.GSheetsEtl(config_dict)
     etl_instance.process()
-    logger.debug('Etl process complete.')
 
 
+@error_handler
 def input_gui():
     r"""Function summary.
     Description sentence(s).
@@ -124,7 +160,6 @@ def input_gui():
     Raises:
         Description sentence.
     """
-    logger.debug('Starting input gui.')
     user_inputs = None
 
     def get_inputs():
@@ -147,11 +182,10 @@ def input_gui():
     # tk.Button(gui, text='Quit', command=gui.quit).grid(row=3, column=1, sticky=tk.W, pady=4)
     gui.mainloop()
 
-    logger.debug('Input gui complete.')
-
     return user_inputs
 
 
+@error_handler
 def buffer(input_fc, output_fc, buf_distance):
     r"""Run ArcGIS Pro tool Buffer.
     https://pro.arcgis.com/en/pro-app/latest/tool-reference/analysis/buffer.htm
@@ -165,15 +199,11 @@ def buffer(input_fc, output_fc, buf_distance):
     Raises:
         N/A
     """
-    logger.debug('Starting Buffer geoprocessing.')
-    try:
-        result = arcpy.Buffer_analysis(input_fc, output_fc, buf_distance, "FULL", "ROUND", "ALL")
-        check_status(result)
-    except arcpy.ExecuteError:
-        arcpy.AddError(arcpy.GetMessages(2))
-    logger.debug('Buffer geoprocessing complete.')
+    result = arcpy.Buffer_analysis(input_fc, output_fc, buf_distance, "FULL", "ROUND", "ALL")
+    check_status(result)
 
 
+@error_handler
 def intersect(fc_list, output_fc):
     r"""Run ArcGIS Pro tool Intersect.
     https://pro.arcgis.com/en/pro-app/latest/tool-reference/analysis/intersect.htm
@@ -186,15 +216,11 @@ def intersect(fc_list, output_fc):
     Raises:
         N/A
     """
-    logger.debug('Starting Intersect geoprocessing.')
-    try:
-        result = arcpy.Intersect_analysis(fc_list, output_fc, "ALL")
-        check_status(result)
-    except arcpy.ExecuteError:
-        arcpy.AddError(arcpy.GetMessages(2))
-    logger.debug('Intersect geoprocessing complete.')
+    result = arcpy.Intersect_analysis(fc_list, output_fc, "ALL")
+    check_status(result)
 
 
+@error_handler
 def erase(input_fc, erase_fc, erase_output):
     r"""Function summary.
     Description sentence(s).
@@ -208,15 +234,11 @@ def erase(input_fc, erase_fc, erase_output):
     """
     # Erase the erase_fc from the input_fc
     # Reference: https://pro.arcgis.com/en/pro-app/latest/tool-reference/analysis/erase.htm
-    logger.debug('\nStarting erase')
-    try:
-        result = arcpy.Erase_analysis(input_fc, erase_fc, erase_output)
-        check_status(result)
-    except arcpy.ExecuteError:
-        arcpy.AddError(arcpy.GetMessages(2))
-    logger.debug('erase complete\n')
+    result = arcpy.Erase_analysis(input_fc, erase_fc, erase_output)
+    check_status(result)
 
 
+@error_handler
 def spatial_join(target_fc, join_fc, output_fc):
     r"""Function summary.
     Description sentence(s).
@@ -230,16 +252,12 @@ def spatial_join(target_fc, join_fc, output_fc):
     """
     # Joins the join_fc to the target_fc and creates an output_fc
     # Reference: https://pro.arcgis.com/en/pro-app/latest/tool-reference/analysis/spatial-join.htm
-    logger.debug('Starting Spatial Join geoprocessing.')
-    try:
-        result = arcpy.SpatialJoin_analysis(target_fc, join_fc, output_fc, join_type="KEEP_COMMON",
-                                            match_option="WITHIN")
-        check_status(result)
-    except arcpy.ExecuteError:
-        arcpy.AddError(arcpy.GetMessages(2))
-    logger.debug('Spatial Join geoprocessing complete.')
+    result = arcpy.SpatialJoin_analysis(target_fc, join_fc, output_fc, join_type="KEEP_COMMON",
+                                        match_option="WITHIN")
+    check_status(result)
 
 
+@error_handler
 def record_count(count_fc):
     r"""Function summary.
     Description sentence(s).
@@ -253,16 +271,12 @@ def record_count(count_fc):
     """
     # Returns the record count of features in a feature class.
     # Reference: https://pro.arcgis.com/en/pro-app/latest/tool-reference/data-management/get-count.htm
-    logger.debug('Starting Get Count geoprocessing.')
-    try:
-        result = arcpy.GetCount_management(count_fc)
-        check_status(result)
-        return result[0]
-    except arcpy.ExecuteError:
-        arcpy.AddError(arcpy.GetMessages(2))
-    logger.debug('Get Count geoprocessing complete.')
+    result = arcpy.GetCount_management(count_fc)
+    check_status(result)
+    return result[0]
 
 
+@error_handler
 def get_map(aprx, map_name):
     r"""Function summary.
     Description sentence(s).
@@ -281,6 +295,7 @@ def get_map(aprx, map_name):
     raise ValueError(f'Map called {map_name} does not exist in current aprx {aprx.filePath}')
 
 
+@error_handler
 def set_spatial_reference(mp, spatial_reference):
     r"""Function summary.
     Description sentence(s).
@@ -292,15 +307,11 @@ def set_spatial_reference(mp, spatial_reference):
     Raises:
         Description sentence.
     """
-    logger.debug('Starting set spatial reference.')
-    try:
-        # Set spatial reference
-        mp.spatialReference = arcpy.SpatialReference(spatial_reference)
-    except arcpy.ExecuteError:
-        arcpy.AddError(arcpy.GetMessages(2))
-    logger.debug('Set spatial reference complete.')
+    # Set spatial reference
+    mp.spatialReference = arcpy.SpatialReference(spatial_reference)
 
 
+@error_handler
 def add_feature_to_map(aprx_mp, lyr_name, output_fc, colour, transparency):
     r"""Function summary.
     Description sentence(s).
@@ -312,7 +323,6 @@ def add_feature_to_map(aprx_mp, lyr_name, output_fc, colour, transparency):
     Raises:
         Description sentence.
     """
-    logger.debug('Adding feature to map.')
     arcpy.AddMessage('\nAdding feature to map.')
     for lyr in aprx_mp.listLayers():
         if lyr.name == lyr_name:
@@ -328,9 +338,9 @@ def add_feature_to_map(aprx_mp, lyr_name, output_fc, colour, transparency):
             sym.renderer.symbol.outlineColor = {'RGB': [0, 0, 0, 100]}
             lyr.symbology = sym
             lyr.transparency = transparency
-    logger.debug('Add feature to map complete.')
 
 
+@error_handler
 def export_map(aprx, subtitle, address_count):
     r"""Function summary.
     Description sentence(s).
@@ -342,7 +352,6 @@ def export_map(aprx, subtitle, address_count):
     Raises:
         Description sentence.
     """
-    logger.debug('Starting map export.')
     lyt = aprx.listLayouts()[0]
     for el in lyt.listElements():
         arcpy.AddMessage(el.name)
@@ -353,9 +362,9 @@ def export_map(aprx, subtitle, address_count):
             el.text = f'{el.text} {address_count}'
             arcpy.AddMessage(el.text)
     lyt.exportToPDF(f'{config_dict["proj_dir"]}/wnv.pdf')
-    logger.debug('Export map complete.')
 
 
+@error_handler
 def render_layout(map_subtitle, map_features, map_spatial_reference, address_count, output_db):
     r"""Function summary.
     Description sentence(s).
@@ -367,7 +376,6 @@ def render_layout(map_subtitle, map_features, map_spatial_reference, address_cou
     Raises:
         Description sentence.
     """
-    logger.debug('Starting render layout.')
     # Add desired features to output map and colour the features
     aprx_path = set_path(config_dict.get('proj_dir'), 'WestNileOutbreak.aprx')
     aprx = arcpy.mp.ArcGISProject(aprx_path)
@@ -382,9 +390,9 @@ def render_layout(map_subtitle, map_features, map_spatial_reference, address_cou
 
     # Export final map
     export_map(aprx, map_subtitle, address_count)
-    logger.debug('Render layout complete.')
 
 
+@error_handler
 def generate_target_addresses_csv(fc):
     r"""Generates target_addresses.csv
     Generates a csv containing all the final target addresses that will require spraying.
@@ -395,25 +403,21 @@ def generate_target_addresses_csv(fc):
         Side effect is target_addresses.csv is created in the WestNileOutbreak project directory.
     """
     # Reference: https://pro.arcgis.com/en/pro-app/latest/arcpy/data-access/searchcursor-class.htm
-    logger.debug('Starting generate target addresses csv.')
-    try:
-        csv_path = f'{config_dict["proj_dir"]}/target_addresses.csv'
-        with open(csv_path, 'w', newline='', encoding='utf-8') as f:
-            fieldnames = ['TargetAddresses']
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            fields = ['FULLADDR']
-            with arcpy.da.SearchCursor(fc, fields) as cursor:
-                for row in cursor:
-                    # arcpy.AddMessage(f'Address = {row[0]}')
-                    row_dict = {'TargetAddresses': row[0]}
-                    # arcpy.AddMessage(f'Writing row to new_addresses.csv: {row_dict}')
-                    writer.writerow(row_dict)
-    except arcpy.ExecuteError:
-        arcpy.AddError(arcpy.GetMessages(2))
-    logger.debug('Generate target addresses csv complete.')
+    csv_path = f'{config_dict["proj_dir"]}/target_addresses.csv'
+    with open(csv_path, 'w', newline='', encoding='utf-8') as f:
+        fieldnames = ['TargetAddresses']
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        fields = ['FULLADDR']
+        with arcpy.da.SearchCursor(fc, fields) as cursor:
+            for row in cursor:
+                # arcpy.AddMessage(f'Address = {row[0]}')
+                row_dict = {'TargetAddresses': row[0]}
+                # arcpy.AddMessage(f'Writing row to new_addresses.csv: {row_dict}')
+                writer.writerow(row_dict)
 
 
+@error_handler
 def run_analysis(output_db):
     r"""Analysis orchestration.
     Coordinates geospatial analysis operations to create required output feature classes:
@@ -429,7 +433,6 @@ def run_analysis(output_db):
         Results dictionary with the addresses at risk and map subtitle.
         Side effect is final_analysis, avoid_points_buf, Target_Addresses exist in output_db
     """
-    logger.debug('Starting run analysis.')
     # Start Input GUI
     user_inputs = input_gui()
     logger.info(f'Simulation Parameters: {user_inputs}')
@@ -487,10 +490,10 @@ def run_analysis(output_db):
     # Create a dictionary of results for external use
     results = {'addresses_at_risk_count': addresses_at_risk_count,
                'map_subtitle': user_inputs['map_subtitle']}
-    logger.debug('Run analysis complete.')
     return results
 
 
+@error_handler
 def main(flush_output_db=False):
     r"""main orchestration
     Coordinates the major operations of the West Nile Outbreak project.
@@ -502,15 +505,11 @@ def main(flush_output_db=False):
     # Setup geoprocessing environment.
     # NAD 1983 StatePlane Colorado North: https://www.spatialreference.org/ref/esri/102653/
     pcs = 102653
-    # Setup the logger to generate log file use commands: logger.debug(msg), logger.info(msg)
-    setup_logging(level='DEBUG', fn=f'{config_dict["proj_dir"]}/{config_dict["log_fn"]}')
     # Setup arcgis environment
     arcgis_setup(flush_output_db, spatial_reference=pcs)
     # Setup output db
     output_db = config_dict.get('output_gdb_dir')
     arcpy.AddMessage(f'output db: {output_db}')
-
-    logger.info('Starting West Nile Virus Simulation')
 
     # ----- run_etl -----
     # Run etl, generates the avoid_points feature class.
@@ -538,4 +537,8 @@ def main(flush_output_db=False):
 
 
 if __name__ == '__main__':
+    # Setup the logger to generate log file use commands: logger.debug(msg), logger.info(msg)
+    setup_logging(level='DEBUG', fn=f'{config_dict["proj_dir"]}/{config_dict["log_fn"]}')
+
+    logger.info('Starting West Nile Virus Simulation')
     main(flush_output_db=True)
