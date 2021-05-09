@@ -5,16 +5,43 @@ from config import set_path
 
 
 class SpatialEtl:
+    """
+    SpatialEtl performs a general extract, transform and load process.
+    SpatialEtl is the parent class.
+    Child classes will perform specific type of etl process.
+
+    This class is designed to be instantiated through the etl api.
+    Error handling and logging should be implemented in the system calling this api.
+    Integrated system must catch general errors (Exception as e) and arcpy errors (arcpy.ExecuteError).
+
+    Parameters:
+        config_dict (dictionary): A dictionary containing all the key value pairs from the config yaml.
+    """
+
     def __init__(self, config_dict):
+        """ SpatialEtl constructor.
+
+        Args:
+            config_dict: A dictionary containing all the key value pairs from the config yaml.
+        """
         self.config_dict = config_dict
 
     def extract(self):
+        """ General extract.
+
+        """
         print(f"Extracting from {self.config_dict['gsheet_url']} to {self.config_dict['etl_dir']}")
 
     def transform(self):
+        """ General transform.
+
+        """
         print(f"Transforming {self.config_dict['format']}")
 
     def load(self):
+        """ General load.
+
+        """
         print(f"Loading data into {self.config_dict['gdb_dir']}")
 
 
@@ -23,15 +50,30 @@ class GSheetsEtl(SpatialEtl):
     GSheetsEtl performs an extract, transform and load process using a URL to a google spreadsheet.
     The spreadsheet must contain an address and zipcode column.
 
+    This class is designed to be instantiated through the etl api.
+    Error handling and logging should be implemented in the system calling this api.
+    Integrated system must catch general errors (Exception as e) and arcpy errors (arcpy.ExecuteError).
+
     Parameters:
         config_dict (dictionary): A dictionary containing all the key value pairs from the config yaml.
     """
 
     def __init__(self, config_dict):
+        """GSheetsEtl constructor.
+
+        Args:
+            config_dict: A dictionary containing all the key value pairs from the config yaml.
+        """
         super().__init__(config_dict)
         self.s = requests.Session()
 
     def extract(self):
+        """Extracts data from a google spreadsheet.
+        Google spreadsheet url is contained in the config yaml.
+
+        Returns:
+             ./data/addresses.csv with addresses from the google spreadsheet is created.
+        """
         # Get data
         arcpy.AddMessage('Extracting addresses from google spreadsheet')
         r = self.s.get(self.config_dict.get('gsheet_url'))
@@ -46,6 +88,12 @@ class GSheetsEtl(SpatialEtl):
             f.write(data)
 
     def transform(self):
+        """Transforms addresses.csv
+        Transforms addresses.csv to new_addresses.csv by adding geocoded x, y coordinates to new_addresses.csv.
+
+        Returns:
+            ./data/new_addresses.csv with geocoded x, y coordinates for use with arcpy.
+        """
         arcpy.AddMessage('Transforming addresses using geocoder')
 
         # Create transformed csv with X, Y, and Type for headers
@@ -70,6 +118,11 @@ class GSheetsEtl(SpatialEtl):
                     writer.writerow(row_dict)
 
     def load(self):
+        """Loads new_addresss.csv into an arcpy feature class.
+
+        Returns:
+            arcpy XY table to point loads a feature class into an ArcGIS Pro db.
+        """
         arcpy.AddMessage('\nCreating a point feature class from input table\n')
 
         # Setup local variables
@@ -85,6 +138,11 @@ class GSheetsEtl(SpatialEtl):
             f'\nFeature class avoid_points created with {arcpy.GetCount_management(out_feature_class)} rows.')
 
     def process(self):
+        """Runs the etl.
+
+        Returns:
+            The extract, transform, and load processes are run.
+        """
         self.extract()
         self.transform()
         self.load()
