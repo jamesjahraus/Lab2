@@ -535,7 +535,7 @@ def main(flush_output_db=False):
 
     # analysis_results_dictionary below is included for debugging so don't have to run_analysis:
     # analysis_results_dictionary = {'map_subtitle': 'debug subtitle', 'addresses_at_risk_count': 123}
-    
+
     map_features = [('final_analysis', [255, 0, 0, 100]),
                     ('avoid_points_buf', [115, 178, 255, 100]),
                     ('Target_Addresses', [102, 119, 205, 100])]
