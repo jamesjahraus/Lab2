@@ -38,7 +38,10 @@ def error_handler(func):
             logger.debug(f'Completed execution of {func.__name__} firstlineno: {func.__code__.co_firstlineno}.')
             return result
         except arcpy.ExecuteError:
-            arcpy.AddError(arcpy.GetMessages(2))
+            arcpy.AddMessage(
+                f'arcpy.ExecuteError {func.__name__} firstlineno {func.__code__.co_firstlineno}\n{arcpy.GetMessages(2)}')
+            logger.error(
+                f'arcpy.ExecuteError {func.__name__} firstlineno {func.__code__.co_firstlineno}\n{arcpy.GetMessages(2)}')
         except Exception as e:
             arcpy.AddMessage(
                 f'Execution of {func.__name__} firstlineno: {func.__code__.co_firstlineno} failed due to error: {e}.')
