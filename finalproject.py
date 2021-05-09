@@ -25,10 +25,10 @@ def error_handler(func):
     https://medium.com/swlh/handling-exceptions-in-python-a-cleaner-way-using-decorators-fae22aa0abec
 
     Args:
-        func:
+        func: The function that is wrapped by the decorator.
 
     Returns:
-
+        Anything the decorated function returns.
     """
 
     def inner_func(*args, **kwargs):
@@ -53,7 +53,7 @@ def error_handler(func):
 
 @error_handler
 def check_status(result):
-    r"""Logs the status of executing geoprocessing tools.
+    """Logs the status of executing geoprocessing tools.
 
     Requires futher investigation to refactor this function:
         I can not find geoprocessing tool name in the result object.
@@ -65,6 +65,7 @@ def check_status(result):
 
     Args:
         result: An executing geoprocessing tool object.
+
     Returns:
         Requires futher investigation on what result.getMessages() means on return.
     """
@@ -87,11 +88,12 @@ def check_status(result):
 
 @error_handler
 def setup_env(workspace_path, spatial_reference):
-    r"""Setup arcpy geoprocessing workspace.
-    Description sentence(s).
+    """Setup arcpy geoprocessing workspace.
+
     Args:
-        workspace_path: the path to the ArcGIS Pro default db.
-        spatial_reference: the desired spatial reference.
+        workspace_path: The path to the ArcGIS Pro default db.
+        spatial_reference: The desired spatial reference.
+
     Returns:
         Side effect is ArcGIS Pro workspace is setup with desired db, spatial reference, and overwriteOutput = True.
     """
@@ -110,13 +112,16 @@ def setup_env(workspace_path, spatial_reference):
 
 @error_handler
 def arcgis_setup(flush_output_db=False, spatial_reference=54016):
-    r"""Orchestration for setting up the arcpy geoprocessing workspace.
+    """Orchestration for setting up the arcpy geoprocessing workspace.
 
     Args:
-        flush_output_db=False: contents of output db will not be deleted.
-        flush_output_db=True: contents of output db will be deleted.
-        spatial_reference=54016: Default spatial reference
+        flush_output_db:
+            =False contents of output db will not be deleted.
+            =True contents of output db will be deleted.
+        spatial_reference:
+            =54016: Default spatial reference
             Gall stereographic projection https://www.spatialreference.org/ref/esri/54016/
+
     Returns:
         Side effect is output db is setup, and ArcGIS Pro workspace orchestration is started with correct db.
     """
@@ -137,15 +142,10 @@ def arcgis_setup(flush_output_db=False, spatial_reference=54016):
 
 @error_handler
 def run_etl():
-    r"""Function summary.
-    Description sentence(s).
-    Arguments:
-        arg 1: Description sentence.
-        arg 2: Description sentence.
+    """Runs the etl.
+
     Returns:
-        Description sentence.
-    Raises:
-        Description sentence.
+        Side effect is avoid_points feature class is created in db.
     """
     etl_instance = etl.GSheetsEtl(config_dict)
     etl_instance.process()
@@ -153,15 +153,16 @@ def run_etl():
 
 @error_handler
 def input_gui():
-    r"""Function summary.
-    Description sentence(s).
-    Arguments:
-        arg 1: Description sentence.
-        arg 2: Description sentence.
+    """ Starts the input gui.
+
+    Input gui is rendered so the user can input the following parameters:
+        - intersect analysis feature class name
+        - buffer distance
+        - map subtitle
+
     Returns:
-        Description sentence.
-    Raises:
-        Description sentence.
+        user_inputs dictionary is returned:
+            = {'intersect_fc': '', 'buf_distance': '', 'map_subtitle': ''}
     """
     user_inputs = None
 
@@ -190,17 +191,16 @@ def input_gui():
 
 @error_handler
 def buffer(input_fc, output_fc, buf_distance):
-    r"""Run ArcGIS Pro tool Buffer.
+    """Run ArcGIS Pro tool Buffer.
     https://pro.arcgis.com/en/pro-app/latest/tool-reference/analysis/buffer.htm
 
-    Arguments:
+    Args:
         input_fc: Required feature class to buffer.
         output_fc: Output buffered feature class.
         buf_distance: Distance to buffer the feature class.
+
     Returns:
         Side effect is a buffer fc is output to a db.
-    Raises:
-        N/A
     """
     result = arcpy.Buffer_analysis(input_fc, output_fc, buf_distance, "FULL", "ROUND", "ALL")
     check_status(result)
@@ -208,16 +208,15 @@ def buffer(input_fc, output_fc, buf_distance):
 
 @error_handler
 def intersect(fc_list, output_fc):
-    r"""Run ArcGIS Pro tool Intersect.
+    """Run ArcGIS Pro tool Intersect.
     https://pro.arcgis.com/en/pro-app/latest/tool-reference/analysis/intersect.htm
 
-    Arguments:
+    Args:
         fc_list: List of feature classes to run Intersect Analysis on.
         output_fc: Output intersect feature class.
+
     Returns:
         Side effect is an intersect fc is output to a db.
-    Raises:
-        N/A
     """
     result = arcpy.Intersect_analysis(fc_list, output_fc, "ALL")
     check_status(result)
@@ -225,36 +224,38 @@ def intersect(fc_list, output_fc):
 
 @error_handler
 def erase(input_fc, erase_fc, erase_output):
-    r"""Function summary.
-    Description sentence(s).
-    Arguments:
-        arg 1: Description sentence.
-        arg 2: Description sentence.
+    """Run ArcGIS Pro tool Erase.
+    https://pro.arcgis.com/en/pro-app/latest/tool-reference/analysis/erase.htm
+
+    Erase the erase_fc from the input_fc
+
+    Args:
+        input_fc: Features that will have features erased from.
+        erase_fc: Features that will erase from the input_fc.
+        erase_output: The erase fc.
+
     Returns:
-        Description sentence.
-    Raises:
-        Description sentence.
+        Side effect is an erase fc is output to a db.
     """
-    # Erase the erase_fc from the input_fc
-    # Reference: https://pro.arcgis.com/en/pro-app/latest/tool-reference/analysis/erase.htm
     result = arcpy.Erase_analysis(input_fc, erase_fc, erase_output)
     check_status(result)
 
 
 @error_handler
 def spatial_join(target_fc, join_fc, output_fc):
-    r"""Function summary.
-    Description sentence(s).
-    Arguments:
-        arg 1: Description sentence.
-        arg 2: Description sentence.
+    """Run ArcGIS Pro tool Spatial Join.
+    https://pro.arcgis.com/en/pro-app/latest/tool-reference/analysis/spatial-join.htm
+
+    Joins the join_fc to the target_fc and creates an output_fc
+
+    Args:
+        target_fc: Left target that will have the right join_fc joined.
+        join_fc: Feature class that will be joined to the target.
+        output_fc: The join fc.
+
     Returns:
-        Description sentence.
-    Raises:
-        Description sentence.
+        Side effect is an spatial join fc is output to a db.
     """
-    # Joins the join_fc to the target_fc and creates an output_fc
-    # Reference: https://pro.arcgis.com/en/pro-app/latest/tool-reference/analysis/spatial-join.htm
     result = arcpy.SpatialJoin_analysis(target_fc, join_fc, output_fc, join_type="KEEP_COMMON",
                                         match_option="WITHIN")
     check_status(result)
@@ -262,18 +263,15 @@ def spatial_join(target_fc, join_fc, output_fc):
 
 @error_handler
 def record_count(count_fc):
-    r"""Function summary.
-    Description sentence(s).
-    Arguments:
-        arg 1: Description sentence.
-        arg 2: Description sentence.
+    """Run ArcGIS Pro tool Get Count.
+    https://pro.arcgis.com/en/pro-app/latest/tool-reference/data-management/get-count.htm
+
+    Args:
+        count_fc: Feature class to run get count on.
+
     Returns:
-        Description sentence.
-    Raises:
-        Description sentence.
+        Returns the record count of features in a feature class.
     """
-    # Returns the record count of features in a feature class.
-    # Reference: https://pro.arcgis.com/en/pro-app/latest/tool-reference/data-management/get-count.htm
     result = arcpy.GetCount_management(count_fc)
     check_status(result)
     return result[0]
@@ -281,15 +279,17 @@ def record_count(count_fc):
 
 @error_handler
 def get_map(aprx, map_name):
-    r"""Function summary.
-    Description sentence(s).
-    Arguments:
-        arg 1: Description sentence.
-        arg 2: Description sentence.
+    """Finds an existing map in an ArcGIS Pro project.
+
+    Args:
+        aprx: path to the ArcGIS Pro project.
+        map_name: name of the map in the project.
+
     Returns:
-        Description sentence.
+        Returns the map object from the ArcGIS Pro project.
+
     Raises:
-        Description sentence.
+        ValueError if a map doesn't exist in the db.
     """
     for mp in aprx.listMaps():
         if map_name == mp.name:
@@ -300,15 +300,14 @@ def get_map(aprx, map_name):
 
 @error_handler
 def set_spatial_reference(mp, spatial_reference):
-    r"""Function summary.
-    Description sentence(s).
-    Arguments:
-        arg 1: Description sentence.
-        arg 2: Description sentence.
+    """Sets the spatial reference of a map object.
+
+    Args:
+        mp: arcpy map object.
+        spatial_reference: ESRI spatial reference code.
+
     Returns:
-        Description sentence.
-    Raises:
-        Description sentence.
+        Side effect is the spatial reference of a map object is set with an ESRI code.
     """
     # Set spatial reference
     mp.spatialReference = arcpy.SpatialReference(spatial_reference)
@@ -316,15 +315,17 @@ def set_spatial_reference(mp, spatial_reference):
 
 @error_handler
 def add_feature_to_map(aprx_mp, lyr_name, output_fc, colour, transparency):
-    r"""Function summary.
-    Description sentence(s).
-    Arguments:
-        arg 1: Description sentence.
-        arg 2: Description sentence.
+    """Adds a feature class to a map object.
+
+    Args:
+        aprx_mp: arcpy map object
+        lyr_name: name of an arcpy layer
+        output_fc: feature class that will be transformed into a layer.
+        colour: four element list with an RGB colour code, the last element represents the opacity value.
+        transparency: the desired % transparency
+
     Returns:
-        Description sentence.
-    Raises:
-        Description sentence.
+        Side effect is a feature class will be rendered on a map object.
     """
     arcpy.AddMessage('\nAdding feature to map.')
     for lyr in aprx_mp.listLayers():
@@ -345,15 +346,15 @@ def add_feature_to_map(aprx_mp, lyr_name, output_fc, colour, transparency):
 
 @error_handler
 def export_map(aprx, subtitle, address_count):
-    r"""Function summary.
-    Description sentence(s).
-    Arguments:
-        arg 1: Description sentence.
-        arg 2: Description sentence.
+    """Exports a layout to a pdf.
+
+    Args:
+        aprx: ArcGIS Pro project file.
+        subtitle: The map's subtitle.
+        address_count: The address count from the target addresses feature class.
+
     Returns:
-        Description sentence.
-    Raises:
-        Description sentence.
+        Side effect is a layout is exported to a pdf file for the map output.
     """
     lyt = aprx.listLayouts()[0]
     for el in lyt.listElements():
@@ -369,17 +370,20 @@ def export_map(aprx, subtitle, address_count):
 
 @error_handler
 def render_layout(map_subtitle, map_features, map_spatial_reference, address_count, output_db):
-    r"""Function summary.
-    Description sentence(s).
-    Arguments:
-        arg 1: Description sentence.
-        arg 2: Description sentence.
+    """Map renderer orchestration.
+
+    Orchestrates the rendering of layout and converting the layout to a pdf output file.
+
+    Args:
+        map_subtitle: Desired subtitle for the output map.
+        map_features: Desired features to map.
+        map_spatial_reference: Desired spatial reference for map.
+        address_count: Addresses count variable previously calculated for output map.
+        output_db: File location for map_features.
+
     Returns:
-        Description sentence.
-    Raises:
-        Description sentence.
+        Side effect is rendering functions are provided with correct inputs for layout configuration and pdf file output.
     """
-    # Add desired features to output map and colour the features
     aprx_path = set_path(config_dict.get('proj_dir'), 'WestNileOutbreak.aprx')
     aprx = arcpy.mp.ArcGISProject(aprx_path)
     arcpy.AddMessage(f'aprx path: {aprx.filePath}')
@@ -397,11 +401,13 @@ def render_layout(map_subtitle, map_features, map_spatial_reference, address_cou
 
 @error_handler
 def generate_target_addresses_csv(fc):
-    r"""Generates target_addresses.csv
+    """Generates target_addresses.csv
     Generates a csv containing all the final target addresses that will require spraying.
     Assumes there is a field called 'FULLADDR' in the input feature class.
-    Arguments:
+
+    Args:
         fc: The target addresses feature class.
+
     Returns:
         Side effect is target_addresses.csv is created in the WestNileOutbreak project directory.
     """
@@ -422,16 +428,16 @@ def generate_target_addresses_csv(fc):
 
 @error_handler
 def run_analysis(output_db):
-    r"""Analysis orchestration.
+    """Analysis orchestration.
+
     Coordinates geospatial analysis operations to create required output feature classes:
      - final_analysis
      - avoid_points_buf
      - Target_Addresses
 
-    No try except block included because these exist in helper functions called by this function.
-
-    Arguments:
+    Args:
         output_db: path of the output data base so each geoprocessing tool can write ouput feature classes.
+
     Returns:
         Results dictionary with the addresses at risk and map subtitle.
         Side effect is final_analysis, avoid_points_buf, Target_Addresses exist in output_db
@@ -498,12 +504,14 @@ def run_analysis(output_db):
 
 @error_handler
 def main(flush_output_db=False):
-    r"""main orchestration
+    """main orchestration
     Coordinates the major operations of the West Nile Outbreak project.
     No try except block included because these exist in helper functions called by this function.
-    Arguments:
-        flush_output_db=False means contents of the output db will not be deleted.
-        flush_output_db=True means contents of the output db will be deleted.
+
+    Args:
+        flush_output_db:
+            =False means contents of the output db will not be deleted.
+            =True means contents of the output db will be deleted
     """
     # Setup geoprocessing environment.
     # NAD 1983 StatePlane Colorado North: https://www.spatialreference.org/ref/esri/102653/
@@ -524,7 +532,10 @@ def main(flush_output_db=False):
 
     # ----- render_layout -----
     # Render the map including analysis features, correct colours, subtitle, and addresses at risk count.
+
+    # analysis_results_dictionary below is included for debugging so don't have to run_analysis:
     # analysis_results_dictionary = {'map_subtitle': 'debug subtitle', 'addresses_at_risk_count': 123}
+    
     map_features = [('final_analysis', [255, 0, 0, 100]),
                     ('avoid_points_buf', [115, 178, 255, 100]),
                     ('Target_Addresses', [102, 119, 205, 100])]
